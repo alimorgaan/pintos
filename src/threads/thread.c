@@ -28,6 +28,8 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+static struct list sleepList;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -92,6 +94,7 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+  list_init (&sleepList);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -201,6 +204,12 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+
+  //check if the current thread priority is lower than the new thread
+  //call yield 
+
+  if(thread_current()->priority < t->priority) thread_yield() ; 
+
   return tid;
 }
 
@@ -237,9 +246,21 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_push_back (&ready_list, &t->elem);
+
+  //push the thread ordered with priority 
+  list_insert_ordered(&ready_list , &(t->elem) , &priorityComparator , NULL);
+
+
   t->status = THREAD_READY;
   intr_set_level (old_level);
+}
+
+//comparator function to compare priority 
+bool priorityComparator(const struct list_elem *a, const struct list_elem *b, void *aux){
+    struct thread * t1 = list_entry(a , struct thread , elem) ;
+    struct thread * t2 = list_entry(b , struct thread , elem) ; 
+    if(t1->priority < t2->priority) return true ; 
+    else return false ; 
 }
 
 /* Returns the name of the running thread. */
@@ -308,7 +329,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_push_back (&ready_list, &cur->elem);
+    list_insert_ordered(&ready_list , &(cur->elem) , &priorityComparator , NULL);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -336,6 +357,8 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  //when change priority of the running thred we have to reorder the list 
+  list_sort(&ready_list , &priorityComparator , NULL);
 }
 
 /* Returns the current thread's priority. */
@@ -518,7 +541,7 @@ thread_schedule_tail (struct thread *prev)
   struct thread *cur = running_thread ();
   
   ASSERT (intr_get_level () == INTR_OFF);
-
+  
   /* Mark us as running. */
   cur->status = THREAD_RUNNING;
 
