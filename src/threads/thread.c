@@ -228,6 +228,15 @@ thread_block (void)
   schedule ();
 }
 
+//comparator function to compare priority 
+bool priorityComparator(const struct list_elem *a, const struct list_elem *b, void *aux){
+    struct thread * t1 = list_entry(a , struct thread , elem) ;
+    struct thread * t2 = list_entry(b , struct thread , elem) ; 
+    if(t1->priority > t2->priority) return true ; 
+    else return false ; 
+}
+
+
 /* Transitions a blocked thread T to the ready-to-run state.
    This is an error if T is not blocked.  (Use thread_yield() to
    make the running thread ready.)
@@ -254,13 +263,6 @@ thread_unblock (struct thread *t)
   intr_set_level (old_level);
 }
 
-//comparator function to compare priority 
-bool priorityComparator(const struct list_elem *a, const struct list_elem *b, void *aux){
-    struct thread * t1 = list_entry(a , struct thread , elem) ;
-    struct thread * t2 = list_entry(b , struct thread , elem) ; 
-    if(t1->priority < t2->priority) return true ; 
-    else return false ; 
-}
 
 /* Returns the name of the running thread. */
 const char *
@@ -357,7 +359,7 @@ thread_set_priority (int new_priority)
 {
   thread_current ()->priority = new_priority;
   //when change priority of the running thred we have to reorder the list 
-  list_sort(&ready_list , &priorityComparator , NULL);
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
