@@ -3,7 +3,7 @@
 
 struct real {
     int x;
-}
+};
 //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
 //hehe
 int real_to_int(struct real r);
