@@ -1,4 +1,5 @@
 #include "real.h"
+#include <stdint.h>
 
 const int F = 1 << 14;
 
