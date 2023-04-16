@@ -1,5 +1,6 @@
 #include "real.h"
 #include <stdint.h>
+#include <stddef.h>
 
 const int F = 1 << 14;
 
@@ -11,6 +12,12 @@ int real_to_int(struct real r) {
 }
 
 struct real int_to_real(int n) {
+    struct real r;
+    r.x = n * F;
+    return r;
+}
+
+struct real size_t_to_real(size_t n) {
     struct real r;
     r.x = n * F;
     return r;

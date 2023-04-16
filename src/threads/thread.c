@@ -1,4 +1,5 @@
 #include "threads/thread.h"
+#include "devices/timer.h"
 #include <debug.h>
 #include <stddef.h>
 #include <random.h>
@@ -28,7 +29,7 @@ static struct list ready_list;
    when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
-
+struct real load_avg;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -72,6 +73,12 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+void calc_load_avg(void);
+struct real calc_recent_cpu(struct real recent_cpu, int nice);
+int calc_priority(struct real recent_cpu, int nice);
+void update_all_priority(void);
+void update_all_recent_cpu(void);
+
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -100,6 +107,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
+  load_avg = int_to_real(0);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -136,6 +144,19 @@ thread_tick (void)
   else
     kernel_ticks++;
 
+  if(thread_mlfqs) {
+    if(t != idle_thread) {
+      t->recent_cpu = add_real(t->recent_cpu, int_to_real(1));
+    }
+
+    if(timer_ticks() % TIME_SLICE == 0) {
+      update_all_priority();
+    }
+
+    if(timer_ticks() % TIMER_FREQ == 0) {
+      update_all_recent_cpu();
+    }
+  }
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
@@ -371,31 +392,76 @@ thread_get_priority (void)
 void
 thread_set_nice (int nice UNUSED) 
 {
-  /* Not yet implemented. */
+  thread_current()->nice = nice;
 }
 
 /* Returns the current thread's nice value. */
 int
 thread_get_nice (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return thread_current()->nice;
 }
 
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return real_to_int(load_avg)*100;
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  /* Not yet implemented. */
-  return 0;
+  return real_to_int(thread_current()->recent_cpu)*100;
+}
+
+void calc_load_avg(void) {
+  size_t size = list_size(&ready_list);
+  if (thread_current() != idle_thread) size++;
+  struct real term1 = mult_real(div_real(int_to_real(59), int_to_real(60)), load_avg);
+  struct real term2 = mult_real(div_real(int_to_real(1), int_to_real(60)), size_t_to_real(size));
+  load_avg = add_real(term1, term2);
+}
+
+struct real calc_recent_cpu(struct real recent_cpu, int nice) {
+  calc_load_avg();
+  struct real decay = mult_real(int_to_real(2), load_avg);
+  decay = div_real(decay, add_real(decay, int_to_real(1)));
+  struct real term1 = mult_real(decay, recent_cpu);
+  struct real term2 = int_to_real(nice);
+  return add_real(term1, term2);
+}
+
+int calc_priority(struct real recent_cpu, int nice) {
+  struct real term2 = div_real(recent_cpu, int_to_real(4));
+  int term1 = PRI_MAX - real_to_int(term2);
+  int ans = term1 - nice * 2;
+  if (ans < PRI_MIN) return PRI_MIN;
+  if (ans > PRI_MAX) return PRI_MAX;
+  return ans;
+}
+
+void update_all_priority(void) {
+  enum intr_level old_level = intr_disable();
+  struct list_elem *iter = list_begin(&all_list);
+  while (iter != list_end(&all_list)) {
+      struct thread *entry = list_entry(iter,struct thread, allelem);
+      iter = list_next(iter);
+      if (entry == idle_thread) continue;
+      entry->priority = calc_priority(entry->recent_cpu, entry->nice);
+  }
+  intr_set_level(old_level);
+}
+
+void update_all_recent_cpu(void) {
+  struct list_elem *iter = list_begin(&all_list);
+  while (iter != list_end(&all_list)) {
+      struct thread *entry = list_entry(iter, struct thread, allelem);
+      iter = list_next(iter);
+      if (entry == idle_thread) continue;
+      entry->recent_cpu = calc_recent_cpu(entry->recent_cpu, entry->nice);
+  }
 }
 
 /* Idle thread.  Executes when no other thread is ready to run.
@@ -484,6 +550,8 @@ init_thread (struct thread *t, const char *name, int priority)
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
+  t->nice = 0;
+  t->recent_cpu = int_to_real(0);
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
