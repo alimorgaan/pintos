@@ -258,7 +258,7 @@ thread_unblock (struct thread *t)
   //push the thread ordered with priority 
   list_insert_ordered(&ready_list , &(t->elem) , &priorityComparator , NULL);
 
-
+  
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
