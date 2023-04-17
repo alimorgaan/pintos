@@ -379,9 +379,10 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority) 
 {
-  thread_current ()->priority = new_priority;
-  //when change priority of the running thred we have to reorder the list 
-  thread_yield();
+  if(thread_mlfqs) return;
+    thread_current ()->priority = new_priority;
+    //when change priority of the running thred we have to reorder the list 
+    thread_yield();
 }
 
 /* Returns the current thread's priority. */
@@ -428,7 +429,6 @@ void calc_load_avg(void) {
 }
 
 struct real calc_recent_cpu(struct real recent_cpu, int nice) {
-  calc_load_avg();
   struct real decay = mult_real(int_to_real( (int) 2), load_avg);
   decay = div_real(decay, add_real(decay, int_to_real((int) 1)));
   struct real term1 = mult_real(decay, recent_cpu);
@@ -459,6 +459,7 @@ void update_all_priority(void) {
 
 void update_all_recent_cpu(void) {
   struct list_elem *iter = list_begin(&all_list);
+  calc_load_avg();
   while (iter != list_end(&all_list)) {
       struct thread *entry = list_entry(iter, struct thread, allelem);
       iter = list_next(iter);
@@ -556,7 +557,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->nice = 0;
   t->recent_cpu = int_to_real((int) 0);
   t->magic = THREAD_MAGIC;
-
+  if (thread_mlfqs && running_thread()->status == THREAD_RUNNING) {
+      t->nice = thread_current()->nice;
+      t->recent_cpu = thread_current()->recent_cpu;
+      t->priority = calc_priority(t->recent_cpu, t->nice);
+  }
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
