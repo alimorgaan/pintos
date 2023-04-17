@@ -12,6 +12,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "real.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -107,7 +108,7 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  load_avg = int_to_real(0);
+  load_avg = int_to_real( (int) 0);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -146,7 +147,7 @@ thread_tick (void)
 
   if(thread_mlfqs) {
     if(t != idle_thread) {
-      t->recent_cpu = add_real(t->recent_cpu, int_to_real(1));
+      t->recent_cpu = add_real(t->recent_cpu, int_to_real((int) 1));
     }
 
     if(timer_ticks() % TIME_SLICE == 0) {
@@ -421,22 +422,22 @@ thread_get_recent_cpu (void)
 void calc_load_avg(void) {
   size_t size = list_size(&ready_list);
   if (thread_current() != idle_thread) size++;
-  struct real term1 = mult_real(div_real(int_to_real(59), int_to_real(60)), load_avg);
-  struct real term2 = mult_real(div_real(int_to_real(1), int_to_real(60)), size_t_to_real(size));
+  struct real term1 = mult_real(div_real(int_to_real((int) 59), int_to_real((int) 60)), load_avg);
+  struct real term2 = mult_real(div_real(int_to_real((int) 1), int_to_real((int) 60)), size_t_to_real(size));
   load_avg = add_real(term1, term2);
 }
 
 struct real calc_recent_cpu(struct real recent_cpu, int nice) {
   calc_load_avg();
-  struct real decay = mult_real(int_to_real(2), load_avg);
-  decay = div_real(decay, add_real(decay, int_to_real(1)));
+  struct real decay = mult_real(int_to_real( (int) 2), load_avg);
+  decay = div_real(decay, add_real(decay, int_to_real((int) 1)));
   struct real term1 = mult_real(decay, recent_cpu);
   struct real term2 = int_to_real(nice);
   return add_real(term1, term2);
 }
 
 int calc_priority(struct real recent_cpu, int nice) {
-  struct real term2 = div_real(recent_cpu, int_to_real(4));
+  struct real term2 = div_real(recent_cpu, int_to_real((int) 4));
   int term1 = PRI_MAX - real_to_int(term2);
   int ans = term1 - nice * 2;
   if (ans < PRI_MIN) return PRI_MIN;
@@ -553,7 +554,7 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->nice = 0;
-  t->recent_cpu = int_to_real(0);
+  t->recent_cpu = int_to_real((int) 0);
   t->magic = THREAD_MAGIC;
 
   old_level = intr_disable ();
