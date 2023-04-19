@@ -88,7 +88,9 @@ struct thread
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
-    int priority;                       /* Priority. */
+    int priority;                      /* Priority. */
+    int originalPriority ;              
+    bool fakePriority ; 
     struct list_elem allelem;           /* List element for all threads list. */
     int nice;
     struct real recent_cpu;

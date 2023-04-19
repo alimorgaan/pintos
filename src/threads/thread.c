@@ -134,7 +134,7 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
-
+  
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -247,6 +247,8 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
+  list_sort(&ready_list , priorityComparator , NULL); 
+  
   schedule ();
 }
 
@@ -271,7 +273,6 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
-
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
@@ -325,7 +326,6 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -446,6 +446,7 @@ int calc_priority(struct real recent_cpu, int nice) {
 }
 
 void update_all_priority(void) {
+  printf("here"); 
   enum intr_level old_level = intr_disable();
   struct list_elem *iter = list_begin(&all_list);
   while (iter != list_end(&all_list)) {
@@ -557,13 +558,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->nice = 0;
   t->recent_cpu = int_to_real((int) 0);
   t->magic = THREAD_MAGIC;
+  t->fakePriority = false ; 
   if (thread_mlfqs && running_thread()->status == THREAD_RUNNING) {
       t->nice = thread_current()->nice;
       t->recent_cpu = thread_current()->recent_cpu;
       t->priority = calc_priority(t->recent_cpu, t->nice);
   }
   old_level = intr_disable ();
-  list_push_back (&all_list, &t->allelem);
+  list_insert_ordered(&all_list , &t->allelem , priorityComparator , NULL); 
   intr_set_level (old_level);
 }
 
@@ -590,8 +592,11 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else{
+    list_sort(&ready_list , priorityComparator , NULL); 
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
+    
 }
 
 /* Completes a thread switch by activating the new thread's page
