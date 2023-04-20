@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -19,6 +20,9 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+/*FARES: Lists only Sleeping (temporarily Blocked) Threads*/ 
+static struct list sleep_list;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -71,6 +75,28 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 
+
+bool Thread_compare_sleep(const struct list_elem *a, const  struct  list_elem *b, void *aux){
+    return list_entry(a,struct thread, blockelem)->SleepEnd < list_entry(b,struct thread,blockelem)->SleepEnd;
+}
+
+// void Unblock_ifAny(void){
+
+//   //get the first elem in SleepList i.e., the one with the least SleepEnd = duration+start
+//   struct thread *First2Unblock = list_entry(list_front(&sleep_list),struct thread,elem);
+
+//   if(timer_ticks() >= First2Unblock->SleepEnd)
+//   {
+//     thread_unblock(First2Unblock);
+//     list_remove(list_front(&sleep_list));
+//   }
+// }
+
+void Insert_in_order(struct thread *c){
+  list_insert_ordered(&sleep_list,&(c->blockelem), Thread_compare_sleep, NULL);
+}
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -92,6 +118,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+  /*FARES*/ list_init (&sleep_list);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -210,6 +238,7 @@ thread_create (const char *name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
+
 void
 thread_block (void) 
 {
@@ -218,6 +247,57 @@ thread_block (void)
 
   thread_current ()->status = THREAD_BLOCKED;
   schedule ();
+}
+
+void
+thread_block_noSchedule () 
+{
+  ASSERT (!intr_context ());
+  ASSERT (intr_get_level () == INTR_OFF);
+
+  thread_current ()->status = THREAD_BLOCKED;
+  // schedule ();
+}
+
+void
+thread_sleep(int wake_up) {
+
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  struct thread *curr = thread_current();
+
+// The time that the thread will wake up after "wake_up" is copied in
+// the struct thread of the currently running thread
+  curr->SleepEnd = wake_up;
+  // printf("\ncurr sleepend%d",curr->SleepEnd);
+// the sleep list includes ascending ordering of list_elem of sleeping threads according to the sleepEnd value
+  Insert_in_order(curr);
+
+  // Current thread is blocked to prevent a sleeping thread from re-scheduling  
+  thread_block();
+  
+  intr_set_level (old_level);
+  
+}
+
+void
+Unblock_ifAny(int64_t ticks) {
+
+  struct list_elem *e = list_begin(&sleep_list);
+  struct thread *To_Unblock;
+
+  while(e != list_end(&sleep_list)){
+
+    To_Unblock = list_entry(e, struct thread, blockelem);
+    e = list_next(e);
+    if(To_Unblock->SleepEnd == ticks){
+
+      list_pop_front(&sleep_list);
+      thread_unblock(To_Unblock);
+    }
+    else break;
+  }
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
