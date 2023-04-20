@@ -108,7 +108,6 @@ thread_init (void)
   init_thread (initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid ();
-  load_avg = int_to_real( (int) 0);
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -120,6 +119,8 @@ thread_start (void)
   struct semaphore idle_started;
   sema_init (&idle_started, 0);
   thread_create ("idle", PRI_MIN, idle, &idle_started);
+
+  load_avg = int_to_real((int) 0);
 
   /* Start preemptive thread scheduling. */
   intr_enable ();
@@ -409,23 +410,29 @@ thread_get_nice (void)
 /* Returns 100 times the system load average. */
 int
 thread_get_load_avg (void) 
+
 {
-  return real_to_int(load_avg)*100;
+  //printf("%d\n", real_to_int(mult_real(load_avg, int_to_real(100))));
+  return real_to_int(mult_real(load_avg, int_to_real(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
 int
 thread_get_recent_cpu (void) 
 {
-  return real_to_int(thread_current()->recent_cpu)*100;
+  return real_to_int(mult_real(thread_current()->recent_cpu, int_to_real(100)));
 }
 
 void calc_load_avg(void) {
   size_t size = list_size(&ready_list);
-  if (thread_current() != idle_thread) size++;
-  struct real term1 = mult_real(div_real(int_to_real((int) 59), int_to_real((int) 60)), load_avg);
-  struct real term2 = mult_real(div_real(int_to_real((int) 1), int_to_real((int) 60)), size_t_to_real(size));
+  if (thread_current() != idle_thread) {
+    size++;
+  }
+  printf("%d ", real_to_int(load_avg));
+  struct real term1 = div_real(mult_real(int_to_real((int) 59), load_avg), int_to_real((int) 60));
+  struct real term2 = div_real(int_to_real(size), int_to_real((int) 60));
   load_avg = add_real(term1, term2);
+  printf("%d \n", real_to_int(load_avg));
 }
 
 struct real calc_recent_cpu(struct real recent_cpu, int nice) {
