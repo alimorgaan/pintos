@@ -283,16 +283,6 @@ thread_block (void)
 }
 
 void
-thread_block_noSchedule () 
-{
-  ASSERT (!intr_context ());
-  ASSERT (intr_get_level () == INTR_OFF);
-
-  thread_current ()->status = THREAD_BLOCKED;
-  // schedule ();
-}
-
-void
 thread_sleep(int wake_up) {
 
   enum intr_level old_level;
@@ -300,18 +290,17 @@ thread_sleep(int wake_up) {
 
   struct thread *curr = thread_current();
 
-// The time that the thread will wake up after "wake_up" is copied in
-// the struct thread of the currently running thread
+  // The time that the thread will wake up after "wake_up" is copied in
+  // the struct thread of the currently running thread
   curr->SleepEnd = wake_up;
-  // printf("\ncurr sleepend%d",curr->SleepEnd);
-// the sleep list includes ascending ordering of list_elem of sleeping threads according to the sleepEnd value
+
+  // the sleep list includes ascending ordering of list_elem of sleeping threads according to the sleepEnd value
   Insert_in_order(curr);
 
   // Current thread is blocked to prevent a sleeping thread from re-scheduling  
   thread_block();
   
   intr_set_level (old_level);
-  
 }
 
 void
