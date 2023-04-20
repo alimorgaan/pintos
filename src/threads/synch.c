@@ -208,13 +208,16 @@ lock_acquire (struct lock *lock)
   
   //if lock holder priority is lower than the current thread 
   //donate the current priority to the holder 
-  if(lock->holder){
-    if(lock->holder->priority < thread_current()->priority){
-      lock->holder->originalPriority = lock->holder->priority  ; 
-      lock->holder->fakePriority = true ;
-      lock->holder->priority = thread_get_priority(); 
-    }
+  if(thread_mlfqs == false){
+       if(lock->holder){
+          if(lock->holder->priority < thread_current()->priority){
+            lock->holder->originalPriority = lock->holder->priority  ; 
+            lock->holder->fakePriority = true ;
+            lock->holder->priority = thread_get_priority(); 
+          }
+        }
   }
+ 
   
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
@@ -251,10 +254,14 @@ lock_release (struct lock *lock)
   enum intr_level old_level = intr_disable();
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-   if(lock->holder->fakePriority){
-    lock->holder->priority = lock->holder->originalPriority ; 
-    lock->holder->fakePriority = false ; 
+
+  if(thread_mlfqs == false){
+      if(lock->holder->fakePriority){
+        lock->holder->priority = lock->holder->originalPriority ; 
+        lock->holder->fakePriority = false ; 
+      }
   }
+ 
   
   lock->holder = NULL;
  
