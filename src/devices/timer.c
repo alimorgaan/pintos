@@ -90,7 +90,6 @@ void
 timer_sleep(int64_t ticks) {
 
   if(ticks<1) return;
-
   int64_t start = timer_ticks();
   ASSERT(intr_get_level() == INTR_ON);
   int wake_up_time = ticks + start;

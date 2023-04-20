@@ -479,7 +479,8 @@ thread_get_nice (void)
 int
 thread_get_load_avg (void) 
 {
-  return real_to_int(load_avg)*100;
+  
+  return real_to_int( mult_real( load_avg, int_to_real(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -515,7 +516,6 @@ int calc_priority(struct real recent_cpu, int nice) {
 }
 
 void update_all_priority(void) {
-  printf("here"); 
   enum intr_level old_level = intr_disable();
   struct list_elem *iter = list_begin(&all_list);
   while (iter != list_end(&all_list)) {
