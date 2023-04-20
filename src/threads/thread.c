@@ -12,6 +12,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+
 #include "threads/real.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -21,6 +22,9 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+
+/*FARES: Lists only Sleeping (temporarily Blocked) Threads*/ 
+static struct list sleep_list;
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -81,6 +85,28 @@ void update_all_priority(void);
 void update_all_recent_cpu(void);
 
 
+
+bool Thread_compare_sleep(const struct list_elem *a, const  struct  list_elem *b, void *aux){
+    return list_entry(a,struct thread, blockelem)->SleepEnd < list_entry(b,struct thread,blockelem)->SleepEnd;
+}
+
+// void Unblock_ifAny(void){
+
+//   //get the first elem in SleepList i.e., the one with the least SleepEnd = duration+start
+//   struct thread *First2Unblock = list_entry(list_front(&sleep_list),struct thread,elem);
+
+//   if(timer_ticks() >= First2Unblock->SleepEnd)
+//   {
+//     thread_unblock(First2Unblock);
+//     list_remove(list_front(&sleep_list));
+//   }
+// }
+
+void Insert_in_order(struct thread *c){
+  list_insert_ordered(&sleep_list,&(c->blockelem), Thread_compare_sleep, NULL);
+}
+
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -102,6 +128,9 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+  /*FARES*/ list_init (&sleep_list);
+
   
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -135,7 +164,7 @@ void
 thread_tick (void) 
 {
   struct thread *t = thread_current ();
-
+  
   /* Update statistics. */
   if (t == idle_thread)
     idle_ticks++;
@@ -241,6 +270,7 @@ thread_create (const char *name, int priority,
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
    primitives in synch.h. */
+
 void
 thread_block (void) 
 {
@@ -248,9 +278,50 @@ thread_block (void)
   ASSERT (intr_get_level () == INTR_OFF);
 
   thread_current ()->status = THREAD_BLOCKED;
+  list_sort(&ready_list , priorityComparator , NULL); 
+  
   schedule ();
 }
 
+void
+thread_sleep(int wake_up) {
+
+  enum intr_level old_level;
+  old_level = intr_disable ();
+
+  struct thread *curr = thread_current();
+
+  // The time that the thread will wake up after "wake_up" is copied in
+  // the struct thread of the currently running thread
+  curr->SleepEnd = wake_up;
+
+  // the sleep list includes ascending ordering of list_elem of sleeping threads according to the sleepEnd value
+  Insert_in_order(curr);
+
+  // Current thread is blocked to prevent a sleeping thread from re-scheduling  
+  thread_block();
+  
+  intr_set_level (old_level);
+}
+
+void
+Unblock_ifAny(int64_t ticks) {
+
+  struct list_elem *e = list_begin(&sleep_list);
+  struct thread *To_Unblock;
+
+  while(e != list_end(&sleep_list)){
+
+    To_Unblock = list_entry(e, struct thread, blockelem);
+    e = list_next(e);
+    if(To_Unblock->SleepEnd == ticks){
+
+      list_pop_front(&sleep_list);
+      thread_unblock(To_Unblock);
+    }
+    else break;
+  }
+}
 //comparator function to compare priority 
 bool priorityComparator(const struct list_elem *a, const struct list_elem *b, void *aux){
     struct thread * t1 = list_entry(a , struct thread , elem) ;
@@ -272,7 +343,6 @@ void
 thread_unblock (struct thread *t) 
 {
   enum intr_level old_level;
-
   ASSERT (is_thread (t));
 
   old_level = intr_disable ();
@@ -326,7 +396,6 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
-
 #ifdef USERPROG
   process_exit ();
 #endif
@@ -412,8 +481,8 @@ int
 thread_get_load_avg (void) 
 
 {
-  //printf("%d\n", real_to_int(mult_real(load_avg, int_to_real(100))));
-  return real_to_int(mult_real(load_avg, int_to_real(100)));
+  
+  return real_to_int( mult_real( load_avg, int_to_real(100)));
 }
 
 /* Returns 100 times the current thread's recent_cpu value. */
@@ -564,13 +633,14 @@ init_thread (struct thread *t, const char *name, int priority)
   t->nice = 0;
   t->recent_cpu = int_to_real((int) 0);
   t->magic = THREAD_MAGIC;
+  t->fakePriority = false ; 
   if (thread_mlfqs && running_thread()->status == THREAD_RUNNING) {
       t->nice = thread_current()->nice;
       t->recent_cpu = thread_current()->recent_cpu;
       t->priority = calc_priority(t->recent_cpu, t->nice);
   }
   old_level = intr_disable ();
-  list_push_back (&all_list, &t->allelem);
+  list_insert_ordered(&all_list , &t->allelem , priorityComparator , NULL); 
   intr_set_level (old_level);
 }
 
@@ -597,8 +667,11 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
+  else{
+    list_sort(&ready_list , priorityComparator , NULL); 
     return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  }
+    
 }
 
 /* Completes a thread switch by activating the new thread's page
