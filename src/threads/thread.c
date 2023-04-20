@@ -497,11 +497,9 @@ void calc_load_avg(void) {
   if (thread_current() != idle_thread) {
     size++;
   }
-  printf("%d ", real_to_int(load_avg));
   struct real term1 = div_real(mult_real(int_to_real((int) 59), load_avg), int_to_real((int) 60));
   struct real term2 = div_real(int_to_real(size), int_to_real((int) 60));
   load_avg = add_real(term1, term2);
-  printf("%d \n", real_to_int(load_avg));
 }
 
 struct real calc_recent_cpu(struct real recent_cpu, int nice) {
