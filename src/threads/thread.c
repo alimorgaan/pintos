@@ -449,8 +449,17 @@ void
 thread_set_priority (int new_priority) 
 {
   if(thread_mlfqs) return;
+  
+  if(thread_current()->originalPriority != thread_current()->priority){
+    
+    thread_current()->originalPriority = new_priority ; 
+    return ; 
+  } 
+  
     thread_current ()->priority = new_priority;
-    //when change priority of the running thred we have to reorder the list 
+    thread_current()->originalPriority = new_priority ; 
+    //when change priority of the running thread we have to reorder the list
+    list_sort(&ready_list , priorityComparator , NULL); 
     thread_yield();
 }
 
@@ -627,7 +636,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->nice = 0;
   t->recent_cpu = int_to_real((int) 0);
   t->magic = THREAD_MAGIC;
-  t->fakePriority = false ; 
+  t->originalPriority = priority;
+  //printf("\n name : %s , priority : %d\n" , t->name , t->priority); 
+  list_init(&(t->locks_list)); 
   if (thread_mlfqs && running_thread()->status == THREAD_RUNNING) {
       t->nice = thread_current()->nice;
       t->recent_cpu = thread_current()->recent_cpu;

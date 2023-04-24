@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include"threads/synch.h"
 #include "threads/real.h"
 
 /* States in a thread's life cycle. */
@@ -91,7 +92,6 @@ struct thread
 
    int priority;                      /* Priority. */
    int originalPriority ;              
-   bool fakePriority ; 
    int nice;
    
    int SleepEnd;
@@ -102,7 +102,10 @@ struct thread
    struct real recent_cpu;
    /* Shared between thread.c and synch.c. */
    struct list_elem elem;              /* List element. */
+   struct list locks_list ; 
 
+   struct lock * blockingLock ; 
+   
 #ifdef USERPROG
    /* Owned by userprog/process.c. */
    uint32_t *pagedir;                  /* Page directory. */
