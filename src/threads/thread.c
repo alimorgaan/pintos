@@ -181,13 +181,15 @@ thread_tick (void)
     }
 
     if(timer_ticks() % TIME_SLICE == 0) {
-      update_all_priority();
+      t->priority = calc_priority(t->recent_cpu , t->nice); 
+      
     }
-
-    if(timer_ticks() % TIMER_FREQ == 0) {
-      update_all_recent_cpu();
-    }
+      if(timer_ticks() % TIMER_FREQ == 0) {
+        update_all_recent_cpu();
+        update_all_priority();
+      }
   }
+  
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
