@@ -95,7 +95,7 @@ struct thread
    int nice;
    
    int SleepEnd;
-   struct list_elem blockelem;           /* List element for all threads list. */
+   struct list_elem blockelem;           /* List element for Blocked list. */
 
    struct list_elem allelem;           /* List element for all threads list. */
    

@@ -23,7 +23,7 @@
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
 
-/*FARES: Lists only Sleeping (temporarily Blocked) Threads*/ 
+/* Lists only Sleeping (temporarily Blocked) Threads */ 
 static struct list sleep_list;
 
 /* List of processes in THREAD_READY state, that is, processes
@@ -90,18 +90,6 @@ bool Thread_compare_sleep(const struct list_elem *a, const  struct  list_elem *b
     return list_entry(a,struct thread, blockelem)->SleepEnd < list_entry(b,struct thread,blockelem)->SleepEnd;
 }
 
-// void Unblock_ifAny(void){
-
-//   //get the first elem in SleepList i.e., the one with the least SleepEnd = duration+start
-//   struct thread *First2Unblock = list_entry(list_front(&sleep_list),struct thread,elem);
-
-//   if(timer_ticks() >= First2Unblock->SleepEnd)
-//   {
-//     thread_unblock(First2Unblock);
-//     list_remove(list_front(&sleep_list));
-//   }
-// }
-
 void Insert_in_order(struct thread *c){
   list_insert_ordered(&sleep_list,&(c->blockelem), Thread_compare_sleep, NULL);
 }
@@ -129,7 +117,7 @@ thread_init (void)
   list_init (&ready_list);
   list_init (&all_list);
 
-  /*FARES*/ list_init (&sleep_list);
+  list_init (&sleep_list);
 
   
   /* Set up a thread structure for the running thread. */
@@ -297,7 +285,8 @@ thread_sleep(int wake_up) {
   // the struct thread of the currently running thread
   curr->SleepEnd = wake_up;
 
-  // the sleep list includes ascending ordering of list_elem of sleeping threads according to the sleepEnd value
+  // the sleep list includes ascending ordering of
+  // list_elem of sleeping threads according to the SleepEnd value
   Insert_in_order(curr);
 
   // Current thread is blocked to prevent a sleeping thread from re-scheduling  

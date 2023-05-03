@@ -85,7 +85,6 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-/*FARES*/
 void
 timer_sleep(int64_t ticks) {
 
